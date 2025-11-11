@@ -41,6 +41,7 @@ Tool decisions are made by agents based on:
 - Tool availability in the tools registry (ToolRegistry.tools)
 - LSP diagnostics for code context through LSP tools integration
 - MCP (Model Control Protocol) integration where applicable using MCP.tools()
+- Automatic subagent selection for complex tasks when configured in command definitions
 
 ## Tool Execution
 
@@ -70,6 +71,27 @@ Next steps are determined by:
 - Tool results and their implications through ToolRegistry.enabled()
 - User feedback loop through CLI interface via SessionPrompt.prompt()
 - System state and project requirements via Session management and Config
+- Command-specific subagent execution through TaskTool when subtask flag is set
+
+## Agent Selection and Subagent Execution
+
+Agent selection follows a structured process:
+
+1. **Command-Level Subagent Selection**:
+   - When a CLI command is configured with `subtask: true` or the agent's mode is "subagent", the system automatically selects an appropriate subagent
+   - This is handled by the `SessionPrompt.command()` function which evaluates command configuration
+   - If the command should spawn a subtask, it uses the `task` tool to create a new session that runs under the selected agent
+
+2. **Subagent Execution Flow**:
+   - When subagents are used, they are instantiated via `TaskTool.execute()`
+   - The `task` tool takes a `subagent_type` parameter that specifies which agent to use
+   - Subagents are determined by their configuration in `Agent.Info` object, specifically their `mode` field
+   - Subagents can only be invoked through tools, never directly by LLM
+
+3. **Tool-Based Agent Invocation**:
+   - Agents can invoke other agents by calling the `task` tool with `subagent_type` parameter
+   - This creates a new session and task with the specified subagent
+   - The subagent operates independently with its own context and tool permissions
 
 ## Core Components Involved
 
@@ -84,8 +106,8 @@ Next steps are determined by:
 - Permission System: Controls tool access (Permission)
 - LSP Integration: Provides code context (LSP, LSP diagnostics tools)
 
-
 # Key prompt sections
+
 • Session Context: Includes conversation history from Session.messages()
 • Agent Configuration: Agent-specific system prompts and tool availability from the Agent system
 • Project Context: Configuration and instance details from Instance and Config
@@ -119,14 +141,13 @@ When AGENTS.md is included in the prompt, its contents are accessed through:
 Tool descriptions are built through:
 
 1. ToolRegistry.ts which:
- • Loads all built-in tools like EditTool, ReadTool, WebFetchTool, etc.
- • Registers custom tools from plugins
- • Provides tools via ToolRegistry.tools() method
+   • Loads all built-in tools like EditTool, ReadTool, WebFetchTool, etc.
+   • Registers custom tools from plugins
+   • Provides tools via ToolRegistry.tools() method
 2. MCP integration via MCP.tools() which:
- • Connects to MCP servers defined in config
- • Exposes MCP tool definitions with sanitized names
- • Applies wildcard matching for tool enabling/disabling
-
+   • Connects to MCP servers defined in config
+   • Exposes MCP tool definitions with sanitized names
+   • Applies wildcard matching for tool enabling/disabling
 
 The tool descriptions include:
 
@@ -134,6 +155,16 @@ The tool descriptions include:
 • Tool description from tool definition
 • Parameters schema for tool inputs
 • Execute method for tool implementation
+
+## Subagent System Integration
+
+The system supports automatic subagent invocation through these mechanisms:
+
+- CLI command configuration can specify `subtask: true` to trigger subagent execution
+- Agent mode "subagent" identifies agents that can only be invoked through other agents
+- TaskTool provides the mechanism for creating new sessions with specific agents
+- Agent selection is automatic when commands are configured for subtasks
+- Subagents operate in isolated sessions with their own tool capabilities and permissions
 
 ## Additional Prompt Components
 
@@ -150,8 +181,8 @@ Other prompt parts include:
 Each component is filtered or transformed to meet the requirements of the specific LLM provider and model configuration, ensuring secure and effective tool usage within the context of
 the session.
 
-
 # LSP
+
 ## 1. Tool Integration
 
 • LSP namespace provides LSP client functionality
@@ -162,17 +193,15 @@ the session.
 ## 2. Prompt Construction
 
 • When files are included in prompts via file URLs, LSP is used to:
- • Get document symbols for accurate code context
- • Resolve symbol ranges for partial file content
- • Provide better contextual information in prompts
-
+• Get document symbols for accurate code context
+• Resolve symbol ranges for partial file content
+• Provide better contextual information in prompts
 
 ## 3. File Operations
 
 • File references in prompts trigger LSP operations:
- • Symbol resolution when a file URL has a range
- • Directory listings through ListTool combined with LSP for file structure
-
+• Symbol resolution when a file URL has a range
+• Directory listings through ListTool combined with LSP for file structure
 
 ## 4. Code Analysis
 
@@ -187,12 +216,13 @@ the session.
 4. Prompt Creation: LSP diagnostics are injected into prompts for better context
 
 ## 6. The LSP integration provides semantic code understanding that enhances the LLM's ability to generate accurate and contextually appropriate code solutions.
+
 LSP is mainly used in these contexts:
 
 1. During Prompt Construction: When file paths are included in user messages, LSP is used to:
- • Get document symbols for better code context
- • Resolve symbol ranges for partial file content
- • Provide diagnostic information about code
+   • Get document symbols for better code context
+   • Resolve symbol ranges for partial file content
+   • Provide diagnostic information about code
 2. Tool Execution: LSP diagnostics and hover information are available as tools that agents can call during code generation, but these aren't typically used afterward.
 3. Pre-Generation Context: LSP integration provides context for the LLM before it even generates code, which helps in understanding the current project's state.
 
@@ -200,9 +230,8 @@ The system does not appear to have any mechanisms for automatically analyzing th
 call when needed, rather than a passive monitoring system for generated code evaluation. The architecture emphasizes using LSP for context during code generation rather than for
 post-generation analysis.
 
-
-
 # AGENTS.md inclusion mechanism
+
 AGENTS.md content is added to the LLM prompt through the SystemPrompt.custom() function in packages/opencode/src/session/system.ts.
 
 ## Where it happens
@@ -212,8 +241,8 @@ The inclusion occurs in the resolveSystemPrompt function in packages/opencode/sr
 ## How it works
 
 1. File discovery: SystemPrompt.custom() searches for AGENTS.md in:
- • Local project directory using Filesystem.findUp()
- • Global configuration directories
+   • Local project directory using Filesystem.findUp()
+   • Global configuration directories
 2. Content inclusion: Found AGENTS.md files are read and their content is directly inserted into the system prompt
 3. Prompt construction: The function is called during system prompt generation in the SessionPrompt namespace, integrating the AGENTS.md content as part of the LLM context
 
