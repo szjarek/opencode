@@ -83,3 +83,119 @@ Next steps are determined by:
 - Provider System: Handles LLM interactions (Provider)
 - Permission System: Controls tool access (Permission)
 - LSP Integration: Provides code context (LSP, LSP diagnostics tools)
+
+
+# Key prompt sections
+• Session Context: Includes conversation history from Session.messages()
+• Agent Configuration: Agent-specific system prompts and tool availability from the Agent system
+• Project Context: Configuration and instance details from Instance and Config
+• Tool Catalogue: Available tools from ToolRegistry
+• System Prompts: From SystemPrompt provider and configuration
+• LSP Diagnostics: Code analysis from LSP tools
+• MCP Tools: Tools integrated through Model Control Protocol
+These components are structured to provide comprehensive context for the LLM to make informed decisions about tool usage and code generation.
+
+## Base System Prompt
+
+The base system prompt is constructed via SessionPrompt.resolveSystemPrompt which:
+
+• Starts with a header from SystemPrompt.header
+• Adds provider-specific prompts from SystemPrompt.provider
+• Includes environment variables from SystemPrompt.environment
+• Adds custom prompts from SystemPrompt.custom
+• Combines into a maximum of two system message entries for caching
+
+## AGENTS.md Integration
+
+When AGENTS.md is included in the prompt, its contents are accessed through:
+
+• Agent configuration from Agent.Info schema and Agent.list()
+• Agent capabilities specified in the agent's tool permissions
+• Agent mode settings like 'primary', 'subagent', or 'all'
+• Agent-specific system prompts defined in Agent.prompt
+
+## Available Tools Description
+
+Tool descriptions are built through:
+
+1. ToolRegistry.ts which:
+ • Loads all built-in tools like EditTool, ReadTool, WebFetchTool, etc.
+ • Registers custom tools from plugins
+ • Provides tools via ToolRegistry.tools() method
+2. MCP integration via MCP.tools() which:
+ • Connects to MCP servers defined in config
+ • Exposes MCP tool definitions with sanitized names
+ • Applies wildcard matching for tool enabling/disabling
+
+
+The tool descriptions include:
+
+• Tool identifier (id)
+• Tool description from tool definition
+• Parameters schema for tool inputs
+• Execute method for tool implementation
+
+## Additional Prompt Components
+
+Other prompt parts include:
+
+• Conversation history from Session.messages()
+• LSP diagnostics when available
+• File contents when requested through the LSP integration
+• Project context from Instance and Config
+• Model-specific parameters from ProviderTransform
+• User permission constraints from Permission system
+• Agent-specific configuration from Agent.Info
+
+Each component is filtered or transformed to meet the requirements of the specific LLM provider and model configuration, ensuring secure and effective tool usage within the context of
+the session.
+
+
+# LSP
+## 1. Tool Integration
+
+• LSP namespace provides LSP client functionality
+• LSP diagnostics are used in LSPDiagnosticsTool to provide code context
+• LSP hover information via LSPHoverTool
+• LSP.documentSymbol for symbol search and range resolution
+
+## 2. Prompt Construction
+
+• When files are included in prompts via file URLs, LSP is used to:
+ • Get document symbols for accurate code context
+ • Resolve symbol ranges for partial file content
+ • Provide better contextual information in prompts
+
+
+## 3. File Operations
+
+• File references in prompts trigger LSP operations:
+ • Symbol resolution when a file URL has a range
+ • Directory listings through ListTool combined with LSP for file structure
+
+
+## 4. Code Analysis
+
+• LSP diagnostics are passed to the LLM through tools
+• Symbol information helps with better semantic understanding during code analysis
+
+## 5. How LSP is Integrated
+
+1. Tool System: LSP tools are registered in the tool system (ToolRegistry.tools)
+2. Session Handling: File URL parsing in createUserMessage triggers LSP operations
+3. Command Processing: Commands like ! (shell commands) use LSP for context
+4. Prompt Creation: LSP diagnostics are injected into prompts for better context
+
+## 6. The LSP integration provides semantic code understanding that enhances the LLM's ability to generate accurate and contextually appropriate code solutions.
+LSP is mainly used in these contexts:
+
+1. During Prompt Construction: When file paths are included in user messages, LSP is used to:
+ • Get document symbols for better code context
+ • Resolve symbol ranges for partial file content
+ • Provide diagnostic information about code
+2. Tool Execution: LSP diagnostics and hover information are available as tools that agents can call during code generation, but these aren't typically used afterward.
+3. Pre-Generation Context: LSP integration provides context for the LLM before it even generates code, which helps in understanding the current project's state.
+
+The system does not appear to have any mechanisms for automatically analyzing the generated code with LSP after it is created. The LSP integration is designed as a tool that agents can
+call when needed, rather than a passive monitoring system for generated code evaluation. The architecture emphasizes using LSP for context during code generation rather than for
+post-generation analysis.

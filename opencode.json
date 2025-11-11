@@ -7,7 +7,7 @@
       "api": "http://localhost:11434/v1",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "timeout": 240
+        "timeout": 600
       },
       "models": {
         "qwen3-coder:30b-a3b-q8_0": {
