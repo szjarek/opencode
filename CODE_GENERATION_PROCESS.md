@@ -199,3 +199,22 @@ LSP is mainly used in these contexts:
 The system does not appear to have any mechanisms for automatically analyzing the generated code with LSP after it is created. The LSP integration is designed as a tool that agents can
 call when needed, rather than a passive monitoring system for generated code evaluation. The architecture emphasizes using LSP for context during code generation rather than for
 post-generation analysis.
+
+
+
+# AGENTS.md inclusion mechanism
+AGENTS.md content is added to the LLM prompt through the SystemPrompt.custom() function in packages/opencode/src/session/system.ts.
+
+## Where it happens
+
+The inclusion occurs in the resolveSystemPrompt function in packages/opencode/src/session/prompt.ts at line 412, where await SystemPrompt.custom() is called.
+
+## How it works
+
+1. File discovery: SystemPrompt.custom() searches for AGENTS.md in:
+ • Local project directory using Filesystem.findUp()
+ • Global configuration directories
+2. Content inclusion: Found AGENTS.md files are read and their content is directly inserted into the system prompt
+3. Prompt construction: The function is called during system prompt generation in the SessionPrompt namespace, integrating the AGENTS.md content as part of the LLM context
+
+The AGENTS.md file content becomes part of the system prompt sent to the language model, providing agents with contextual information about available agents and their capabilities.
