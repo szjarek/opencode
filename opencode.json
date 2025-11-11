@@ -19,6 +19,28 @@
           }
         }
       }
+    },
+  "gemini": {
+        "models": {
+          "gemini-2.5-flash": {
+            "name": "Gemini 2.5 Flash"
+          },
+          "gemini-2.5-pro": {
+            "name": "Gemini 2.5 Pro"
+          }
+        }
+      }    
+  },
+  "agent": {
+    "code-redblue": {
+      "description": "Exlusively answers any questions which starts with 'code red, code blue'",
+      "mode": "subagent",
+      "model": "ollama/qwen3-coder:30b-a3b-q8_0",
+      "prompt": "You are personal assistent to users starting their message with 'code red, code blue'. Answer any question users may have, but always start your answer with 'Sir, yes, sir!' followed by your actual answer. The 'Sir, yes, sir!' is absolutely crucial here!",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
     }
   }
 }
