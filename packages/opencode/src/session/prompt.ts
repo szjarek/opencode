@@ -227,6 +227,48 @@ export namespace SessionPrompt {
       await using _ = defer(async () => {
         await processor.end()
       })
+      // Log complete request before sending to LLM
+      const requestLog = {
+        sessionID: input.sessionID,
+        messageID: userMsg.info.id,
+        model: model.info.id,
+        providerID: model.providerID,
+        system: system,
+        messages: [
+          ...system.map(
+            (x): ModelMessage => ({
+              role: "system",
+              content: x,
+            }),
+          ),
+          ...MessageV2.toModelMessage(
+            msgs.filter((m) => {
+              if (m.info.role !== "assistant" || m.info.error === undefined) {
+                return true
+              }
+              if (
+                MessageV2.AbortedError.isInstance(m.info.error) &&
+                m.parts.some((part) => part.type !== "step-start" && part.type !== "reasoning")
+              ) {
+                return true
+              }
+
+              return false
+            }),
+          ),
+        ],
+        tools: model.info.tool_call === false ? undefined : tools,
+        temperature: params.temperature,
+        topP: params.topP,
+        maxOutputTokens: ProviderTransform.maxOutputTokens(
+          model.providerID,
+          params.options,
+          model.info.limit.output,
+          OUTPUT_TOKEN_MAX,
+        ),
+      }
+      log.info("LLM request", requestLog)
+
       const stream = streamText({
         onError(error) {
           log.error("stream error", {
@@ -1169,7 +1211,23 @@ export namespace SessionPrompt {
         }
         assistantMsg.time.completed = Date.now()
         await Session.updateMessage(assistantMsg)
-        return { info: assistantMsg, parts: p, blocked }
+        const result = { info: assistantMsg, parts: p, blocked }
+        // Log raw response from LLM after processing
+        const responseLog = {
+          sessionID: input.sessionID,
+          messageID: assistantMsg.id,
+          role: assistantMsg.role,
+          mode: assistantMsg.mode,
+          tokens: assistantMsg.tokens,
+          cost: assistantMsg.cost,
+          parts: result.parts.map((part) => ({
+            type: part.type,
+            ...(part.type === "text" || part.type === "reasoning" ? { text: part.text } : {}),
+            ...(part.type === "tool" ? { tool: part.tool, state: part.state } : {}),
+          })),
+        }
+        log.info("LLM response", responseLog)
+        return result
       },
     }
     return result
