@@ -28,18 +28,25 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                     continue
                     
                 # Parse timestamp from log line
-                timestamp_match = re.match(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)', line)
-                if not timestamp_match:
+                # Log format: INFO 2025-11-15T14:07:30 +0ms service=config ...
+                parts = line.strip().split()
+                if len(parts) < 3:
                     continue
                     
-                timestamp_str = timestamp_match.group(1)
                 try:
-                    # Parse timestamp to datetime object
-                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    # Parse the timestamp part (second element in split)
+                    timestamp_str = parts[1]
+                    
+                    # Ensure timestamp is in expected format
+                    if not timestamp_str:
+                        continue
+                    
+                    # Parse just the date and time part (ignoring milliseconds offset for now)
+                    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S')
                     # If timestamp is before start datetime, skip
                     if timestamp < start_datetime:
                         continue
-                except ValueError:
+                except (ValueError, IndexError):
                     continue
                 
                 # Look for LLM request or response entries
@@ -52,7 +59,7 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                             llm_entries.append(entry)
                         except json.JSONDecodeError:
                             continue
-    
+     
     except FileNotFoundError:
         print(f"Error: Log file '{log_file_path}' not found.")
         return []
