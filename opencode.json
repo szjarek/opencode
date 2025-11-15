@@ -4,7 +4,7 @@
   "provider": {
     "ollama": {
       "name": "Ollama",
-      "api": "http://localhost:11434/v1",
+      "api": "http://dgx01:11434/v1",
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "timeout": 600000

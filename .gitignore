@@ -12,3 +12,4 @@ dist
 .turbo
 logs/
 .ipynb_checkpoints/
+.cursor/
