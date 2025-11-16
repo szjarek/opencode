@@ -491,6 +491,19 @@ export namespace SessionPrompt {
               args,
             },
           )
+          const toolRequestLog = {
+            type: "tool request",
+            sessionID: input.sessionID,
+            messageID: input.processor.message.id,
+            callID: options.toolCallId,
+            tool: item.id,
+            args,
+            modelID: input.modelID,
+            providerID: input.providerID,
+            agent: input.agent.name,
+          }
+          log.info(JSON.stringify(toolRequestLog))
+          const startTime = Date.now()
           const result = await item.execute(args, {
             sessionID: input.sessionID,
             abort: options.abortSignal!,
@@ -528,6 +541,25 @@ export namespace SessionPrompt {
             },
             result,
           )
+          const endTime = Date.now()
+          const toolResponseLog = {
+            type: "tool response",
+            sessionID: input.sessionID,
+            messageID: input.processor.message.id,
+            callID: options.toolCallId,
+            tool: item.id,
+            result: {
+              title: result.title,
+              metadata: result.metadata,
+              output: result.output,
+              attachments: result.attachments,
+            },
+            duration: endTime - startTime,
+            modelID: input.modelID,
+            providerID: input.providerID,
+            agent: input.agent.name,
+          }
+          log.info(JSON.stringify(toolResponseLog))
           return result
         },
         toModelOutput(result) {
@@ -555,6 +587,19 @@ export namespace SessionPrompt {
             args,
           },
         )
+        const toolRequestLog = {
+          type: "tool request",
+          sessionID: input.sessionID,
+          messageID: input.processor.message.id,
+          callID: opts.toolCallId,
+          tool: key,
+          args,
+          modelID: input.modelID,
+          providerID: input.providerID,
+          agent: input.agent.name,
+        }
+        log.info(JSON.stringify(toolRequestLog))
+        const startTime = Date.now()
         const result = await execute(args, opts)
         const output = result.content
           .filter((x: any) => x.type === "text")
@@ -569,6 +614,24 @@ export namespace SessionPrompt {
           },
           result,
         )
+        const endTime = Date.now()
+        const toolResponseLog = {
+          type: "tool response",
+          sessionID: input.sessionID,
+          messageID: input.processor.message.id,
+          callID: opts.toolCallId,
+          tool: key,
+          result: {
+            title: "",
+            metadata: {},
+            output,
+          },
+          duration: endTime - startTime,
+          modelID: input.modelID,
+          providerID: input.providerID,
+          agent: input.agent.name,
+        }
+        log.info(JSON.stringify(toolResponseLog))
 
         return {
           title: "",
