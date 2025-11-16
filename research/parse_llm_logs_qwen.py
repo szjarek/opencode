@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[str, Any]]:
@@ -42,24 +42,40 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                         continue
                     
                     # Parse just the date and time part (ignoring milliseconds offset for now)
+                    # Add timezone info to make it timezone-aware to match start_datetime 
                     timestamp = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S')
+                    # Make timestamp timezone-aware to match start_datetime
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                    
                     # If timestamp is before start datetime, skip
                     if timestamp < start_datetime:
                         continue
                 except (ValueError, IndexError):
                     continue
                 
-                # Look for LLM request or response entries
-                if '"LLM request"' in line or '"LLM response"' in line:
-                    # Find JSON part in the line
+                 # Look for LLM request or response entries
+                if 'LLM request' in line or 'LLM response' in line:
+                    line = line.strip()
+                    line_type = 'LLM_request' if line.endswith('LLM request') else 'LLM_response'
+
+                    # Find JSON part in the line                    
                     json_match = re.search(r'\{.*\}', line)
                     if json_match:
+                        group_str = json_match.group(0)
                         try:
-                            entry = json.loads(json_match.group(0))
-                            llm_entries.append(entry)
+                            # Handle double-escaped JSON strings by first decoding the escaped string
+                            # This handles cases where JSON contains escaped quotes, newlines, etc.
+                            try:
+                                decoded_group_str = group_str.encode().decode('unicode_escape')
+                                entry = json.loads(decoded_group_str)
+                                llm_entries.append({line_type: entry})
+                            except (json.JSONDecodeError, UnicodeDecodeError):
+                                # If decoding fails, try direct parsing as fallback
+                                entry = json.loads(group_str)
+                                llm_entries.append({line_type: entry})
                         except json.JSONDecodeError:
-                            continue
-     
+                            llm_entries.append({line_type: group_str})
+
     except FileNotFoundError:
         print(f"Error: Log file '{log_file_path}' not found.")
         return []
@@ -86,6 +102,9 @@ def main():
     # Parse start datetime
     try:
         start_datetime = datetime.fromisoformat(args.start_datetime.replace('Z', '+00:00'))
+        # Make start_datetime timezone-aware for proper comparison
+        if start_datetime.tzinfo is None:
+            start_datetime = start_datetime.replace(tzinfo=timezone.utc)
     except ValueError:
         print(f"Error: Invalid datetime format. Expected ISO format (e.g. '2023-01-01T12:00:00.000Z')")
         return

@@ -267,7 +267,7 @@ export namespace SessionPrompt {
           OUTPUT_TOKEN_MAX,
         ),
       }
-      log.info("LLM request", requestLog)
+      log.info(JSON.stringify({ type: "LLM request", ...requestLog }))
 
       const stream = streamText({
         onError(error) {
@@ -1226,7 +1226,7 @@ export namespace SessionPrompt {
             ...(part.type === "tool" ? { tool: part.tool, state: part.state } : {}),
           })),
         }
-        log.info("LLM response", responseLog)
+        log.info(JSON.stringify({ type: "LLM response", ...responseLog }))
         return result
       },
     }
