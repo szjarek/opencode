@@ -9,14 +9,14 @@ from typing import List, Dict, Any
 
 def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[str, Any]]:
     """
-    Parse LLM logs from a file and extract only LLM requests and responses.
+    Parse LLM logs from a file and extract LLM requests, LLM responses, tool requests, and tool responses.
     
     Args:
         log_file_path: Path to the log file
         start_datetime: Datetime to start parsing from
     
     Returns:
-        List of LLM request/response objects
+        List of LLM request/response and tool request/response objects
     """
     llm_entries = []
     
@@ -60,26 +60,26 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                 except (ValueError, IndexError):
                     continue
                 
-                # Look for LLM request or response entries  
-                # Modern format: {"type": "LLM request", ...} or {"type": "LLM response", ...}
-                if '"type": "LLM request"' in line or '"type": "LLM response"' in line:
-                    # Find JSON part in the line                    
+                if '"type":"LLM request"' in line:
+                    line_type = "LLM request" 
+                elif '"type":"LLM response"' in line:
+                    line_type = "LLM response" 
+                elif '"type":"tool request"' in line:
+                    line_type = "tool request"
+                elif '"type":"tool response"' in line:
+                    line_type = "tool response"
+                else:
+                    line_type = "unknown"
+                
+                if line_type in ["LLM request", "LLM response", "tool request", "tool response"]:
                     json_match = re.search(r'\{.*\}', line)
                     if json_match:
                         group_str = json_match.group(0)
                         try:
-                            # Handle double-escaped JSON strings by first decoding the escaped string
-                            # This handles cases where JSON contains escaped quotes, newlines, etc.
-                            try:
-                                decoded_group_str = group_str.encode().decode('unicode_escape')
-                                entry = json.loads(decoded_group_str)
-                                llm_entries.append({entry['type']: entry})
-                            except (json.JSONDecodeError, UnicodeDecodeError):
-                                # If decoding fails, try direct parsing as fallback
-                                entry = json.loads(group_str)
-                                llm_entries.append({entry['type']: entry})
+                            entry = json.loads(group_str)
+                            llm_entries.append(entry)
                         except json.JSONDecodeError:
-                            llm_entries.append({'LLM_entry': group_str})
+                            llm_entries.append({"type": line_type, "unparsed_content": group_str})
 
     except FileNotFoundError:
         print(f"Error: Log file '{log_file_path}' not found.")
@@ -89,6 +89,7 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
         return []
     
     return llm_entries
+
 
 def main():
     # Default values
