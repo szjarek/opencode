@@ -41,11 +41,18 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                     if not timestamp_str:
                         continue
                     
-                    # Parse just the date and time part (ignoring milliseconds offset for now)
-                    # Add timezone info to make it timezone-aware to match start_datetime 
-                    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S')
+                    # Parse full timestamp including milliseconds
+                    # Example: 2025-01-23T12:00:00.123Z
+                    if 'Z' in timestamp_str:
+                        # Handle milliseconds and timezone
+                        timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    else:
+                        # Parse without milliseconds 
+                        timestamp = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S')
+                    
                     # Make timestamp timezone-aware to match start_datetime
-                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                    if timestamp.tzinfo is None:
+                        timestamp = timestamp.replace(tzinfo=timezone.utc)
                     
                     # If timestamp is before start datetime, skip
                     if timestamp < start_datetime:
@@ -53,11 +60,9 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                 except (ValueError, IndexError):
                     continue
                 
-                 # Look for LLM request or response entries
-                if 'LLM request' in line or 'LLM response' in line:
-                    line = line.strip()
-                    line_type = 'LLM_request' if line.endswith('LLM request') else 'LLM_response'
-
+                # Look for LLM request or response entries  
+                # Modern format: {"type": "LLM request", ...} or {"type": "LLM response", ...}
+                if '"type": "LLM request"' in line or '"type": "LLM response"' in line:
                     # Find JSON part in the line                    
                     json_match = re.search(r'\{.*\}', line)
                     if json_match:
@@ -68,13 +73,13 @@ def parse_llm_logs(log_file_path: str, start_datetime: datetime) -> List[Dict[st
                             try:
                                 decoded_group_str = group_str.encode().decode('unicode_escape')
                                 entry = json.loads(decoded_group_str)
-                                llm_entries.append({line_type: entry})
+                                llm_entries.append({entry['type']: entry})
                             except (json.JSONDecodeError, UnicodeDecodeError):
                                 # If decoding fails, try direct parsing as fallback
                                 entry = json.loads(group_str)
-                                llm_entries.append({line_type: entry})
+                                llm_entries.append({entry['type']: entry})
                         except json.JSONDecodeError:
-                            llm_entries.append({line_type: group_str})
+                            llm_entries.append({'LLM_entry': group_str})
 
     except FileNotFoundError:
         print(f"Error: Log file '{log_file_path}' not found.")
