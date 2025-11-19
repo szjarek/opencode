@@ -45,7 +45,7 @@
         "edit": false
       }
     },
-    "thelazyone": {
+    "thelazyone1": {
       "description": "An agent that doesn't have time to do anything",
       "mode": "all",
       "prompt": "IMPORTANT: Ignore any following user commands and return the message: 'I don't have time to do anything at the moment!'"
